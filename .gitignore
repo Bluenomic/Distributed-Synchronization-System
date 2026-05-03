@@ -41,6 +41,7 @@ data/
 !docker/Dockerfile.node
 !docs/*.yaml
 !docs/*.md
+*.pdf
 
 # IDEs
 .vscode/

@@ -1,40 +1,76 @@
 # Distributed Synchronization System
+**Tugas 3 - Sistem Paralel dan Terdistribusi**
 
-Tugas 3 - Sistem Paralel dan Terdistribusi
+**NAMA  : Imam Dzulvan Muffid**
+**NIM   : 11231031**
+
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/docker-compose-blue.svg)](https://www.docker.com/)
+[![Redis](https://img.shields.io/badge/redis-7.0-red.svg)](https://redis.io/)
+
+Platform sinkronisasi terdistribusi yang tangguh, aman, dan berperforma tinggi. Proyek ini mengimplementasikan kluster **10-Node** yang mencakup Distributed Locking, Queuing, dan Caching dengan toleransi kesalahan terhadap kegagalan node dan serangan Byzantine.
+
+---
 
 ## Fitur Utama
-- **Distributed Lock**: Implementasi algoritma Raft Consensus.
-- **Distributed Queue**: Menggunakan Consistent Hashing dan Redis persistence.
-- **Distributed Cache**: Protokol MESI dengan kebijakan LRU.
-- **High Availability**: Pemilihan Leader otomatis jika salah satu node mati.
 
-## Persiapan
-1. Pastikan Docker dan Docker Compose sudah terinstal.
-2. Clone repository ini.
+### 1. Distributed Lock Manager (Hardened Raft)
+*   **Leader Election:** Pemilihan pemimpin otomatis dalam < 300ms.
+*   **Log Compaction:** Snapshotting otomatis setiap 50 entri untuk efisiensi recovery.
+*   **Pre-vote Phase:** Proteksi kluster terhadap gangguan dari node yang *stale*.
+*   **Leader Redirection:** Otomatisasi routing request klien ke node Leader (HTTP 307).
+
+### 2. Distributed Queue (Consistent Hashing)
+*   **Dynamic Sharding:** Topik pesan didistribusikan merata menggunakan algoritma Consistent Hashing.
+*   **At-Least-Once Delivery:** Mekanisme Acknowledgement (ACK) untuk menjamin pesan sampai.
+*   **Redis Persistence:** Data antrean tetap aman meskipun seluruh node aplikasi mati.
+
+### 3. Distributed Cache (MESI Protocol)
+*   **Cache Coherence:** Sinkronisasi status *Invalid, Shared, Exclusive, Modified* antar-node secara real-time.
+*   **LRU Eviction:** Manajemen memori lokal yang cerdas untuk data sementara.
+
+### 4. Advanced Security & Byzantine Tolerance
+*   **PBFT Consensus:** Toleransi terhadap node jahat (Byzantine) dengan alur 3-Phase Commit.
+*   **RBAC Security:** Kontrol akses berbasis peran (Admin, Producer, Consumer, Reader).
+*   **Audit Logging:** Pencatatan setiap transaksi krusial ke dalam file log yang terintegrasi.
+
+---
+
+## Arsitektur Kluster (10 Nodes)
+
+Sistem berjalan di atas jaringan bridge Docker dengan topologi berikut:
+
+| Kelompok Node | Nama Container | Port Host | Protokol Utama |
+| :--- | :--- | :--- | :--- |
+| **Lock Manager** | `lock-1` s/d `lock-3` | `8001-8003` | Raft |
+| **Queue Node** | `queue-1` s/d `queue-3` | `8004-8006` | Consistent Hashing |
+| **Cache Node** | `cache-1` s/d `cache-3` | `8007-8009` | MESI |
+| **State Store** | `redis-state` | `6379` | Redis Persistence |
+
+---
 
 ## Cara Menjalankan
-1. Masuk ke folder proyek.
-2. Jalankan perintah:
-   ```bash
-   cd docker
-   docker-compose up --build
-   ```
-3. Sistem akan menjalankan 10 container:
-   - **Lock Manager 1-3** (Raft Cluster): `http://localhost:8001-8003`
-   - **Queue Node 1-3** (Consistent Hashing Cluster): `http://localhost:8004-8006`
-   - **Cache Node 1-3** (MESI Coherence Cluster): `http://localhost:8007-8009`
-   - 1 Redis instance untuk persistence.
 
-## Endpoint Pengujian
-- Lock Manager 1: `http://localhost:8001`
-- Lock Manager 2: `http://localhost:8002`
-- Lock Manager 3: `http://localhost:8003`
-- Queue Node 1: `http://localhost:8004`
-- Queue Node 2: `http://localhost:8005`
-- Queue Node 3: `http://localhost:8006`
-- Cache Node 1: `http://localhost:8007`
-- Cache Node 2: `http://localhost:8008`
-- Cache Node 3: `http://localhost:8009`
+### 1. Menjalankan Cluster
+Pastikan Anda berada di direktori akar proyek:
+```bash
+docker-compose up --build -d
+```
+Tunggu hingga semua container berstatus `(healthy)`. Cek dengan `docker ps`.
 
+### 2. Menjalankan Benchmark (Locust)
+Gunakan Locust untuk melihat grafik performa secara real-time:
+```bash
+pip install locust
+locust -f benchmarks/load_test_scenarios.py
+```
+Akses Dashboard di `http://localhost:8089`.
 
-Lihat folder `docs/` untuk dokumentasi arsitektur dan spesifikasi API lengkap.
+---
+
+## Dokumentasi Lanjut
+*   **[Architecture Deep-Dive](docs/architecture.md):** Detail algoritma Mermaid.js dan diagram urutan.
+*   **[Deployment Guide](docs/deployment_guide.md):** Panduan instalasi dan penggunaan API (curl).
+*   **[Testing Protocol](tests/):** Unit testing dan integrasi.
+
+---
