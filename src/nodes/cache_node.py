@@ -15,6 +15,7 @@ logger = logging.getLogger("CacheNode")
 class CacheNode(BaseNode):
     def __init__(self, node_id: str, host: str, port: int, neighbors: list):
         super().__init__(node_id, host, port)
+        self.neighbors = neighbors
         self.messenger = MessagePassing()
         self.failure_detector = FailureDetector(node_id, neighbors, self.messenger)
         self.metrics_collector = MetricsCollector()
@@ -23,12 +24,19 @@ class CacheNode(BaseNode):
 
     def setup_routes(self):
         super().setup_routes()
+        self.app.router.add_get('/cache/state/{key}', self.get_cache_state)
         self.app.router.add_get('/cache/{key}', self.handle_cache_get)
         self.app.router.add_post('/cache/{key}', self.handle_cache_put)
         self.app.router.add_post('/cache/internal/snoop', self.handle_cache_snoop)
         self.app.router.add_get('/metrics', self.handle_get_metrics)
         self.app.on_startup.append(self.on_startup)
         self.app.on_cleanup.append(self.on_cleanup)
+
+    async def get_cache_state(self, request):
+        key = request.match_info.get('key')
+        if key in self.cache:
+            return web.json_response({"key": key, "state": self.cache[key]["state"], "node": self.node_id})
+        return web.json_response({"error": "Not in cache"}, status=404)
 
     async def on_startup(self, app):
         asyncio.create_task(self.failure_detector.run())

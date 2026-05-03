@@ -7,25 +7,25 @@ Sistem ini adalah platform sinkronisasi terdistribusi tingkat lanjut yang mencak
 ```mermaid
 graph TB
     subgraph Sys["Distributed Sync System"]
-        subgraph LM["🔐 Lock Manager (Raft)"]
+        subgraph LM["Lock Manager (Raft)"]
             LN1["lock-1:8001"]
             LN2["lock-2:8002"]
             LN3["lock-3:8003"]
         end
         
-        subgraph QS["📨 Queue (Hash Ring)"]
+        subgraph QS["Queue (Hash Ring)"]
             QN1["queue-1:8004"]
             QN2["queue-2:8005"]
             QN3["queue-3:8006"]
         end
         
-        subgraph CS["💾 Cache (MESI)"]
+        subgraph CS["Cache (MESI)"]
             CN1["cache-1:8007"]
             CN2["cache-2:8008"]
             CN3["cache-3:8009"]
         end
         
-        Redis["🔴 Redis:6379<br/>(State Store)"]
+        Redis["Redis:6379<br/>(State Store)"]
     end
     
     Network["dist-net (Docker Bridge)"]

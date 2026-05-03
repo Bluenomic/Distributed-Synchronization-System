@@ -111,11 +111,14 @@ class RaftNode:
 
     async def _run_follower(self):
         if time.time() - self.last_heartbeat > self.election_timeout:
+            logger.info(f"Node {self.node_id}: Election timeout reached. Transitioning to PRE_CANDIDATE")
+            self.leader_id = None # Clear stale leader
             self.state = NodeState.PRE_CANDIDATE
 
     async def _run_pre_candidate(self):
         """Pre-vote phase: check if cluster is willing to elect without bumping term"""
         logger.info(f"Node {self.node_id}: Starting PRE-VOTE phase")
+        self.leader_id = None
         payload = {
             "term": self.current_term,
             "candidate_id": self.node_id,
@@ -157,8 +160,8 @@ class RaftNode:
         else: await asyncio.sleep(0.5)
 
     async def _run_leader(self):
-        tasks = [self._replicate_log_to(n) for n in self.neighbors]
-        await asyncio.gather(*tasks)
+        for n in self.neighbors:
+            asyncio.create_task(self._replicate_log_to(n))
         await asyncio.sleep(self.heartbeat_interval)
 
     async def _replicate_log_to(self, neighbor: str):

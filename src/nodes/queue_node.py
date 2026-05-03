@@ -18,10 +18,13 @@ logger = logging.getLogger("QueueNode")
 class QueueNode(BaseNode):
     def __init__(self, node_id: str, host: str, port: int, neighbors: list):
         super().__init__(node_id, host, port)
+        self.neighbors = neighbors
         self.messenger = MessagePassing()
         self.failure_detector = FailureDetector(node_id, neighbors, self.messenger)
         self.metrics_collector = MetricsCollector()
-        self.hash_ring = ConsistentHashing(nodes=neighbors + [f"http://{host}:{port}"])
+        # Use node_id (service name) for consistent hashing to ensure reachability in Docker
+        self.my_url = f"http://{node_id}:8000"
+        self.hash_ring = ConsistentHashing(nodes=neighbors + [self.my_url])
         self.queues = {}
         self.pending_acks = {}
         self.redis = None
@@ -54,7 +57,7 @@ class QueueNode(BaseNode):
                     info = json.loads(data_json)
                     topic = info["topic"]
                     target = self.hash_ring.get_node(topic)
-                    if target.startswith(f"http://{self.host}") or target.startswith(f"http://{self.node_id}"):
+                    if target == self.my_url:
                         if topic not in self.queues: self.queues[topic] = asyncio.Queue()
                         await self.queues[topic].put(info["message"])
                         await self.redis.delete(akey)
@@ -62,7 +65,7 @@ class QueueNode(BaseNode):
             for key in keys:
                 topic = key.split(":")[1]
                 target = self.hash_ring.get_node(topic)
-                if target.startswith(f"http://{self.host}") or target.startswith(f"http://{self.node_id}"):
+                if target == self.my_url:
                     messages = await self.redis.lrange(key, 0, -1)
                     if messages:
                         if topic not in self.queues: self.queues[topic] = asyncio.Queue()
@@ -85,15 +88,19 @@ class QueueNode(BaseNode):
         data = await request.json()
         topic, message = data.get("topic"), data.get("message")
         target = self.hash_ring.get_node(topic)
-        if target.startswith(f"http://{self.host}") or target.startswith(f"http://{self.node_id}"):
+        if target == self.my_url:
             if topic not in self.queues: self.queues[topic] = asyncio.Queue()
             await self.queues[topic].put(message)
             if self.redis: await self.redis.rpush(f"queue:{topic}", message)
             self.metrics_collector.record_latency("queue_op", time.time() - start)
             SecurityManager.log_audit(self.node_id, role, "queue:enqueue", topic, "success")
             return web.json_response({"status": "enqueued"})
-        res = await self.messenger.send_post(f"{target}/queue/enqueue", data)
-        return web.json_response(res) if res else web.json_response({"error": "unreachable"}, status=502)
+        
+        logger.info(f"Node {self.node_id}: Forwarding enqueue for topic '{topic}' to {target}")
+        res = await self.messenger.send_post(f"{target}/queue/enqueue", data, headers={"X-Role": role})
+        if res: return web.json_response(res)
+        logger.error(f"Node {self.node_id}: Failed to reach target {target} for enqueue")
+        return web.json_response({"error": "unreachable", "target": target}, status=502)
 
     async def handle_dequeue(self, request):
         start = time.time()
@@ -105,7 +112,7 @@ class QueueNode(BaseNode):
         self.metrics_collector.increment("queue_dequeue")
         topic = request.match_info.get('topic')
         target = self.hash_ring.get_node(topic)
-        if target.startswith(f"http://{self.host}") or target.startswith(f"http://{self.node_id}"):
+        if target == self.my_url:
             message = await self.queues[topic].get() if topic in self.queues and not self.queues[topic].empty() else (await self.redis.lpop(f"queue:{topic}") if self.redis else None)
             if message:
                 ack_id = str(uuid.uuid4())
@@ -117,8 +124,12 @@ class QueueNode(BaseNode):
                 return web.json_response({"status": "dequeued", "message": message, "ack_id": ack_id})
             SecurityManager.log_audit(self.node_id, role, "queue:dequeue", topic, "empty")
             return web.json_response({"status": "empty"}, status=404)
-        res = await self.messenger.send_get(f"{target}/queue/dequeue/{topic}")
-        return web.json_response(res) if res else web.json_response({"error": "unreachable"}, status=502)
+        
+        logger.info(f"Node {self.node_id}: Forwarding dequeue for topic '{topic}' to {target}")
+        res = await self.messenger.send_get(f"{target}/queue/dequeue/{topic}", headers={"X-Role": role})
+        if res: return web.json_response(res)
+        logger.error(f"Node {self.node_id}: Failed to reach target {target} for dequeue")
+        return web.json_response({"error": "unreachable", "target": target}, status=502)
 
     async def handle_queue_ack(self, request):
         data = await request.json()

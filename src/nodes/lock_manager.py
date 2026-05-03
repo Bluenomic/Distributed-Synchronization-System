@@ -16,6 +16,7 @@ logger = logging.getLogger("LockManager")
 class LockManager(BaseNode):
     def __init__(self, node_id: str, host: str, port: int, neighbors: list):
         super().__init__(node_id, host, port)
+        self.neighbors = neighbors
         self.messenger = MessagePassing()
         self.failure_detector = FailureDetector(node_id, neighbors, self.messenger)
         self.metrics_collector = MetricsCollector()
@@ -111,9 +112,24 @@ class LockManager(BaseNode):
             return web.json_response({"error": "Unauthorized"}, status=403)
 
         self.metrics_collector.increment("lock_requests")
+        
+        if self.raft.leader_id is None:
+            return web.json_response({"error": "No leader elected", "detail": "Election in progress, please retry in a few seconds."}, status=503)
+
         if self.raft.leader_id != self.node_id:
-            return web.json_response({"error": "Not leader", "leader_id": self.raft.leader_id}, status=307)
-        data = await request.json()
+            leader_url = f"http://{self.raft.leader_id}:8000/lock/acquire"
+            return web.json_response(
+                {"error": "Not leader", "leader_id": self.raft.leader_id}, 
+                status=307,
+                headers={"Location": leader_url}
+            )
+        
+        try:
+            data = await request.json()
+        except Exception as e:
+            logger.error(f"Node {self.node_id}: JSON Decode Error: {e}")
+            return web.json_response({"error": "Invalid JSON payload", "detail": str(e)}, status=400)
+            
         res_id, ltype, client_id = data.get("resource_id"), data.get("type", "exclusive"), data.get("client_id")
         
         if res_id in self.locks:
