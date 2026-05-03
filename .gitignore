@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments
+.env
+.venv
+venv/
+ENV/
+
+# Docker
+.docker_logs/
+docker-compose.override.yml
+
+# Project Specific
+data/
+*.log
+*.json
+!docker/Dockerfile.node
+!docs/*.yaml
+!docs/*.md
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo

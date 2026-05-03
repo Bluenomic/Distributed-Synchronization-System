@@ -1,0 +1,181 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis-state
+    ports:
+      - "6379:6379"
+    networks:
+      - distributed-network
+
+  # --- LOCK MANAGERS (RAFT) ---
+  lock-1:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: lock-1
+    environment:
+      - NODE_ID=lock-1
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NEIGHBORS=http://lock-2:8000,http://lock-3:8000
+      - REDIS_HOST=redis
+    ports: ["8001:8000"]
+    networks: [distributed-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  lock-2:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: lock-2
+    environment:
+      - NODE_ID=lock-2
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NEIGHBORS=http://lock-1:8000,http://lock-3:8000
+      - REDIS_HOST=redis
+    ports: ["8002:8000"]
+    networks: [distributed-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  lock-3:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: lock-3
+    environment:
+      - NODE_ID=lock-3
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NEIGHBORS=http://lock-1:8000,http://lock-2:8000
+      - REDIS_HOST=redis
+    ports: ["8003:8000"]
+    networks: [distributed-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # --- QUEUE NODES (CONSISTENT HASHING) ---
+  queue-1:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: queue-1
+    environment:
+      - NODE_ID=queue-1
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NEIGHBORS=http://queue-2:8000,http://queue-3:8000
+      - REDIS_HOST=redis
+    ports: ["8004:8000"]
+    networks: [distributed-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  queue-2:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: queue-2
+    environment:
+      - NODE_ID=queue-2
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NEIGHBORS=http://queue-1:8000,http://queue-3:8000
+      - REDIS_HOST=redis
+    ports: ["8005:8000"]
+    networks: [distributed-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  queue-3:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: queue-3
+    environment:
+      - NODE_ID=queue-3
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NEIGHBORS=http://queue-1:8000,http://queue-2:8000
+      - REDIS_HOST=redis
+    ports: ["8006:8000"]
+    networks: [distributed-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # --- CACHE NODES (MESI) ---
+  cache-1:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: cache-1
+    environment:
+      - NODE_ID=cache-1
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NEIGHBORS=http://cache-2:8000,http://cache-3:8000
+      - CACHE_LIMIT=50
+    ports: ["8007:8000"]
+    networks: [distributed-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  cache-2:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: cache-2
+    environment:
+      - NODE_ID=cache-2
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NEIGHBORS=http://cache-1:8000,http://cache-3:8000
+      - CACHE_LIMIT=50
+    ports: ["8008:8000"]
+    networks: [distributed-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  cache-3:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: cache-3
+    environment:
+      - NODE_ID=cache-3
+      - PORT=8000
+      - HOST=0.0.0.0
+      - NEIGHBORS=http://cache-1:8000,http://cache-2:8000
+      - CACHE_LIMIT=50
+    ports: ["8009:8000"]
+    networks: [distributed-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  distributed-network:
+    driver: bridge
+
+networks:
+  distributed-network:
+    driver: bridge

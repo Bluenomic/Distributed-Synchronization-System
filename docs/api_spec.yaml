@@ -1,0 +1,114 @@
+openapi: 3.0.0
+info:
+  title: Distributed Synchronization System API
+  version: 1.1.0
+  description: |
+    API untuk mengelola Distributed Lock, Queue, dan Cache.
+    Sistem ini menggunakan Role-Based Access Control (RBAC). 
+    Gunakan header `X-Role` (admin, producer, consumer, reader) untuk otorisasi.
+
+paths:
+  /lock/acquire:
+    post:
+      summary: Meminta lock pada resource tertentu (Raft-based)
+      parameters:
+        - name: X-Role
+          in: header
+          required: true
+          schema:
+            type: string
+            example: admin
+      responses:
+        '200':
+          description: Lock diberikan
+        '403':
+          description: Unauthorized (RBAC failed)
+        '409':
+          description: Conflict (Resource sudah di-lock)
+
+  /queue/enqueue:
+    post:
+      summary: Memasukkan pesan ke dalam antrean (Consistent Hashing)
+      parameters:
+        - name: X-Role
+          in: header
+          required: true
+          schema:
+            type: string
+            example: producer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topic:
+                  type: string
+                message:
+                  type: string
+      responses:
+        '200':
+          description: Pesan berhasil masuk antrean
+
+  /queue/dequeue/{topic}:
+    get:
+      summary: Mengambil pesan dari antrean (At-least-once delivery)
+      parameters:
+        - name: topic
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Role
+          in: header
+          required: true
+          schema:
+            type: string
+            example: consumer
+      responses:
+        '200':
+          description: Pesan berhasil diambil
+        '404':
+          description: Antrean kosong
+
+  /cache/{key}:
+    get:
+      summary: Mengambil data dari cache (Protokol MESI)
+      parameters:
+        - name: X-Role
+          in: header
+          required: true
+          schema:
+            type: string
+            example: reader
+    post:
+      summary: Menyimpan data ke cache (Memicu invalidasi MESI)
+      parameters:
+        - name: X-Role
+          in: header
+          required: true
+          schema:
+            type: string
+            example: admin
+
+  /metrics:
+    get:
+      summary: Mengambil metrik performa (Latency, Throughput, Uptime)
+      responses:
+        '200':
+          description: Laporan metrik dalam format JSON
+
+  /cluster/join:
+    post:
+      summary: Mendaftarkan node baru ke cluster secara dinamis
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                node_url:
+                  type: string
+      responses:
+        '200':
+          description: Berhasil bergabung ke cluster
