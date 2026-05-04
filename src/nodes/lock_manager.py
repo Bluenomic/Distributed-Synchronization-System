@@ -142,7 +142,7 @@ class LockManager(BaseNode):
                     return web.json_response({"status": "denied", "reason": "Conflict - Tracking for Deadlock"}, status=409)
         
         if self.raft.append_command({"action": "acquire", "resource_id": res_id, "type": ltype, "client_id": client_id}):
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.05)
             self.metrics_collector.record_latency("lock_acquire", time.time() - start)
             SecurityManager.log_audit(self.node_id, role, "lock:acquire", res_id, "granted")
             return web.json_response({"status": "granted"})
