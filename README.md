@@ -4,6 +4,8 @@
 **NAMA  : Imam Dzulvan Muffid**
 **NIM   : 11231031**
 
+**Link Demo   :https://youtu.be/-yaeUzZygNw**
+
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/docker-compose-blue.svg)](https://www.docker.com/)
 [![Redis](https://img.shields.io/badge/redis-7.0-red.svg)](https://redis.io/)
@@ -58,13 +60,19 @@ docker-compose up --build -d
 ```
 Tunggu hingga semua container berstatus `(healthy)`. Cek dengan `docker ps`.
 
-### 2. Menjalankan Benchmark (Locust)
+### 2. Menjalankan Unit & Integration Tests (Pytest)
+Sistem memiliki skenario pengujian komprehensif untuk memverifikasi Raft, Hashing, dan MESI.
+```bash
+pip install -r requirements.txt
+python -m pytest
+```
+
+### 3. Menjalankan Benchmark (Locust)
 Gunakan Locust untuk melihat grafik performa secara real-time:
 ```bash
-pip install locust
 locust -f benchmarks/load_test_scenarios.py
 ```
-Akses Dashboard di `http://localhost:8089`.
+Akses Dashboard di `http://localhost:8089` (Isian `Host` pada web UI bisa dikosongkan karena script sudah menerapkan *Client-Side Load Balancing* secara hardcoded).
 
 ---
 

@@ -3,7 +3,6 @@
 ## 1. Prasyarat (Prerequisites)
 *   **Docker** & **Docker Compose** v2.0+
 *   **Python 3.11+**
-*   **RAM Minimal 4GB** (Untuk menjalankan 10 container secara bersamaan)
 
 ---
 
@@ -67,20 +66,31 @@ curl -sL -X GET http://localhost:8005/queue/dequeue/tasks \
 
 ---
 
-## 5. Menjalankan Benchmark (Locust)
+## 5. Menjalankan Unit & Integration Tests
+Pengujian ini memverifikasi integrasi Raft, logika Consistent Hashing, dan protokol koherensi MESI:
+1.  Pastikan dependensi terinstall (`pip install -r requirements.txt`).
+2.  Jalankan perintah berikut:
+    ```bash
+    python -m pytest
+    ```
+3.  Pastikan semua tes berstatus `PASSED`.
+
+---
+
+## 6. Menjalankan Benchmark (Locust)
 Untuk memvisualisasikan performa sistem dalam grafik:
-1.  Pastikan dependensi sudah terinstall (lihat Poin 2).
+1.  Pastikan dependensi sudah terinstall.
 2.  Jalankan Locust:
     ```bash
     locust -f benchmarks/load_test_scenarios.py
     ```
 3.  Buka browser di [http://localhost:8089](http://localhost:8089).
-4.  Masukkan Host: `http://localhost:8001` (atau port node lainnya).
+4.  **Catatan:** Isian **Host** pada antarmuka web Locust **bisa diabaikan/dikosongkan** (atau isi sembarang misal `http://localhost`). Hal ini karena skrip pengujian telah dimodifikasi menggunakan *Client-Side Load Balancing* yang secara acak menembak target port 8001-8009 secara spesifik.
 5.  Lihat grafik **RPS** dan **Latency** secara real-time.
 
 ---
 
-## 6. Verifikasi Keamanan & Audit Log
+## 7. Verifikasi Keamanan & Audit Log
 Semua transaksi penting dicatat di file lokal di dalam container:
 ```bash
 docker exec lock-1 cat data/audit.log

@@ -57,7 +57,7 @@ class CacheNode(BaseNode):
             self.cache.move_to_end(key)
             self.metrics_collector.record_latency("cache_op", time.time() - start)
             SecurityManager.log_audit(self.node_id, role, "cache:get", key, "hit")
-            return web.json_response({"status": "hit", "value": self.cache[key]["value"]})
+            return web.json_response({"status": "hit", "value": self.cache[key]["value"], "state": self.cache[key]["state"]})
         
         self.metrics_collector.increment("cache_misses")
         results = await self.messenger.broadcast_post(self.failure_detector.get_active_neighbors(), "/cache/internal/snoop", {"action": "BusRd", "key": key})
@@ -66,7 +66,7 @@ class CacheNode(BaseNode):
             self._update_local_cache(key, remote["value"], "S")
             self.metrics_collector.record_latency("cache_op", time.time() - start)
             SecurityManager.log_audit(self.node_id, role, "cache:get", key, "remote_hit")
-            return web.json_response({"status": "remote_hit", "value": remote["value"]})
+            return web.json_response({"status": "remote_hit", "value": remote["value"], "state": "S"})
         
         SecurityManager.log_audit(self.node_id, role, "cache:get", key, "miss")
         return web.json_response({"status": "miss"}, status=404)

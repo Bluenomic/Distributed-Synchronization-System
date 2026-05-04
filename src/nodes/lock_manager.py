@@ -81,20 +81,25 @@ class LockManager(BaseNode):
 
     async def state_machine_loop(self):
         while True:
-            if self.raft.commit_index > self.raft.last_applied:
+            while self.raft.commit_index > self.raft.last_applied:
                 self.raft.last_applied += 1
                 entry = self.raft.log[self.raft.last_applied - 1]
                 await self._apply_log_entry(entry)
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)
 
     async def _apply_log_entry(self, entry):
         cmd = entry["command"]
         action, res_id, client_id, ltype = cmd.get("action"), cmd.get("resource_id"), cmd.get("client_id"), cmd.get("type")
         if action == "acquire":
-            if res_id not in self.locks:
-                self.locks[res_id] = {"owners": [client_id], "type": ltype, "timestamp": time.time()}
-            elif client_id not in self.locks[res_id]["owners"]:
+            # Always update or create the lock with the specified type
+            self.locks[res_id] = {
+                "owners": self.locks.get(res_id, {}).get("owners", []),
+                "type": ltype, # The last applied command dictates the type (or upgrade)
+                "timestamp": time.time()
+            }
+            if client_id not in self.locks[res_id]["owners"]:
                 self.locks[res_id]["owners"].append(client_id)
+            
             if client_id in self.waiting_for and res_id in self.waiting_for[client_id]:
                 self.waiting_for[client_id].remove(res_id)
                 if not self.waiting_for[client_id]: del self.waiting_for[client_id]
@@ -142,7 +147,13 @@ class LockManager(BaseNode):
                     return web.json_response({"status": "denied", "reason": "Conflict - Tracking for Deadlock"}, status=409)
         
         if self.raft.append_command({"action": "acquire", "resource_id": res_id, "type": ltype, "client_id": client_id}):
-            await asyncio.sleep(0.05)
+            # Wait for consensus and application to state machine (up to 1s)
+            target_index = len(self.raft.log)
+            for _ in range(20): # 20 * 0.05s = 1s
+                if self.raft.last_applied >= target_index:
+                    break
+                await asyncio.sleep(0.05)
+            
             self.metrics_collector.record_latency("lock_acquire", time.time() - start)
             SecurityManager.log_audit(self.node_id, role, "lock:acquire", res_id, "granted")
             return web.json_response({"status": "granted"})
