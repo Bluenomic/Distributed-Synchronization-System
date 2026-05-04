@@ -75,10 +75,3 @@ locust -f benchmarks/load_test_scenarios.py
 Akses Dashboard di `http://localhost:8089` (Isian `Host` pada web UI bisa dikosongkan karena script sudah menerapkan *Client-Side Load Balancing* secara hardcoded).
 
 ---
-
-## Dokumentasi Lanjut
-*   **[Architecture Deep-Dive](docs/architecture.md):** Detail algoritma Mermaid.js dan diagram urutan.
-*   **[Deployment Guide](docs/deployment_guide.md):** Panduan instalasi dan penggunaan API (curl).
-*   **[Testing Protocol](tests/):** Unit testing dan integrasi.
-
----
